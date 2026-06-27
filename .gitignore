@@ -4,6 +4,9 @@
 # Command log
 git_ai.log
 
+# Saved projects list (local to each user)
+projects.json
+
 # Python
 __pycache__/
 *.py[cod]

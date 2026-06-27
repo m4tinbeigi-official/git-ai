@@ -39,8 +39,14 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install Tcl/Tk (Linux, needed for the GUI build)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y tk-dev tcl-dev
+
       - name: Install dependencies
-        run: pip install -r requirements.txt pyinstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
 
       - name: Build CLI (onefile)
         run: pyinstaller --onefile --name git-ai git_ai.py
@@ -59,6 +65,15 @@ jobs:
           if [ -f "dist/git-ai-gui${{ matrix.ext }}" ]; then
             cp "dist/git-ai-gui${{ matrix.ext }}" "out/git-ai-gui-${{ matrix.label }}${{ matrix.ext }}"
           fi
+          ls -la out
+
+      - name: Package macOS .dmg
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p dmg
+          if [ -d "dist/git-ai-gui.app" ]; then cp -R "dist/git-ai-gui.app" dmg/; fi
+          cp "dist/git-ai" "dmg/git-ai-cli" 2>/dev/null || true
+          hdiutil create -volname "git-ai" -srcfolder dmg -ov -format UDZO "out/git-ai-macos.dmg"
           ls -la out
 
       - name: Upload artifacts

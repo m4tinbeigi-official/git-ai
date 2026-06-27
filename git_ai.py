@@ -25,7 +25,49 @@ import json
 import subprocess
 from datetime import datetime
 
-import requests
+
+# ---------------------------------------------------------------------------
+# Auto-install requirements on first run (skipped when packaged/frozen)
+# ---------------------------------------------------------------------------
+def _ensure_deps():
+    """Install missing third-party packages automatically. Returns True if it
+    installed anything. Tries several pip strategies for different OS setups."""
+    if getattr(sys, "frozen", False):
+        return False  # PyInstaller bundles already include dependencies
+    import importlib.util
+    needed = []
+    if importlib.util.find_spec("requests") is None:
+        needed.append("requests")
+    if importlib.util.find_spec("dotenv") is None:
+        needed.append("python-dotenv")
+    if not needed:
+        return False
+    print(f"git-ai: installing required packages: {', '.join(needed)} …")
+    for extra in ([], ["--user"], ["--break-system-packages"]):
+        try:
+            r = subprocess.run([sys.executable, "-m", "pip", "install", *extra, *needed])
+            if r.returncode == 0:
+                return True
+        except Exception:
+            continue
+    print("git-ai: automatic install failed. Run: "
+          f"{sys.executable} -m pip install {' '.join(needed)}")
+    return False
+
+
+_INSTALLED = _ensure_deps()
+if _INSTALLED:
+    import importlib
+    importlib.invalidate_caches()
+
+try:
+    import requests
+except ImportError:
+    # Re-exec once so the freshly installed packages are picked up.
+    if _INSTALLED and os.environ.get("GIT_AI_REEXEC") != "1":
+        os.environ["GIT_AI_REEXEC"] = "1"
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+    raise
 
 # ---------------------------------------------------------------------------
 # Load .env (skip silently if python-dotenv is not installed)
@@ -51,6 +93,16 @@ LLM_API_KEY = os.getenv("LLM_API_KEY", "").strip()
 # Bynara is an OpenAI-compatible router. Sign up (with referral) to get a key.
 BYNARA_BASE_URL = "https://router.bynara.id/v1"
 BYNARA_SIGNUP_URL = "https://router.bynara.id/register?ref=NMAP6F9D"
+
+# Author / project links (shown on the About page).
+AUTHOR_NAME = "Rick Sanchez"
+AUTHOR_TAGLINE = "vibe coder"
+PROJECT_REPO = "m4tinbeigi-official/git-ai"
+LINK_PROJECT = "https://github.com/m4tinbeigi-official/git-ai"
+LINK_GITHUB = "https://github.com/m4tinbeigi-official/"
+LINK_TWITTER = "https://twitter.com/m4tinbeigi"
+LINK_INSTAGRAM = "https://instagram.com/m4tinbeigi"
+LINK_LINKEDIN = "https://ir.linkedin.com/in/matinbeigi"
 
 # When True, dangerous commands require a y/n confirmation before running.
 REQUIRE_CONFIRM_FOR_DANGEROUS = True
@@ -108,6 +160,51 @@ Rules:
 - For tiny changes the description may be empty ("").
 - Match the project's dominant language; default to English.
 """
+
+
+# Conversational assistant prompt — greetings, help, git actions, or polite refusal.
+ASSISTANT_SYSTEM_PROMPT = """You are git-ai, a friendly assistant that helps people use git and GitHub.
+Decide how to respond and return ONLY one JSON object:
+{"type": "git" | "talk" | "reject", "command": "<full git command or empty>", "reply": "<message to show the user>"}
+
+Rules:
+- "git": the user wants a git / version-control / GitHub action. Put ONE valid command in "command"
+  (it must start with git) and a short friendly note in "reply".
+- "talk": greetings, thanks, asking what you can do, or general questions about git / GitHub /
+  how to use this app. Leave "command" empty and put a helpful, concise answer in "reply".
+- "reject": the message is clearly unrelated to git, GitHub, version control, or this app
+  (e.g. cooking, sports, trivia, math homework). Leave "command" empty and, in "reply", politely
+  say it's outside what you can help with and that you focus on git and GitHub.
+- Always reply in the SAME language as the user (Persian or English).
+- If asked who made / created / wrote this app, answer (type "talk") that it was created by
+  Rick Sanchez, a vibe coder, and suggest opening the About page for the social links.
+- If asked how to use it automatically, about the API key, sign-up, or setup, answer (type "talk"):
+  open Settings, click "Sign up & get a key" to register and get an API key, paste the key, and Save.
+
+Examples:
+User: hi
+{"type": "talk", "command": "", "reply": "Hi! I help you with git and GitHub — commit, push, branches, undo, and more. What would you like to do?"}
+User: what can you do?
+{"type": "talk", "command": "", "reply": "I turn plain language into git actions: commit, push, pull, create branches, undo a commit, start new projects, and connect to GitHub."}
+User: commit my changes
+{"type": "git", "command": "git add -A && git commit -m \\"update\\"", "reply": "Staging everything and committing."}
+User: what is the capital of France?
+{"type": "reject", "command": "", "reply": "That's outside what I can help with — I focus on git and GitHub. Want to commit, push, or check your status?"}
+"""
+
+
+def assistant_reply(text, cwd=None):
+    """Unified conversational handler. Returns {type, command, reply}."""
+    context = gather_repo_context(cwd) if cwd else "No repository selected."
+    result = _ask(f"{context}\n\nUser message: {text}", ASSISTANT_SYSTEM_PROMPT)
+    t = (result.get("type") or "talk").strip().lower()
+    if t not in ("git", "talk", "reject"):
+        t = "talk"
+    return {
+        "type": t,
+        "command": (result.get("command") or "").strip(),
+        "reply": (result.get("reply") or "").strip(),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -304,6 +401,16 @@ def gh_account():
         return None
 
 
+def get_repo_stars(repo=PROJECT_REPO):
+    """Return the GitHub star count for a repo, or None on failure."""
+    try:
+        r = requests.get(f"https://api.github.com/repos/{repo}", timeout=10)
+        r.raise_for_status()
+        return r.json().get("stargazers_count")
+    except Exception:
+        return None
+
+
 def gh_list_repos(limit=200):
     """Return the user's repositories (nameWithOwner)."""
     try:
@@ -340,6 +447,87 @@ def apply_config(values):
         OLLAMA_URL = values["OLLAMA_URL"].strip()
     if "OLLAMA_MODEL" in values:
         OLLAMA_MODEL = values["OLLAMA_MODEL"].strip()
+
+
+def projects_file():
+    """Path to the JSON file that remembers the user's projects."""
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "projects.json")
+
+
+def load_projects():
+    """Return the saved list of project folder paths (existing ones only)."""
+    try:
+        with open(projects_file(), encoding="utf-8") as f:
+            data = json.load(f)
+        return [p for p in data if isinstance(p, str) and os.path.isdir(p)]
+    except Exception:
+        return []
+
+
+def save_projects(paths):
+    """Persist the list of project paths."""
+    try:
+        with open(projects_file(), "w", encoding="utf-8") as f:
+            json.dump(list(dict.fromkeys(paths)), f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def add_project(path):
+    """Add a project path to the saved list and return the updated list."""
+    paths = load_projects()
+    if path not in paths:
+        paths.append(path)
+        save_projects(paths)
+    return paths
+
+
+def remove_project(path):
+    paths = [p for p in load_projects() if p != path]
+    save_projects(paths)
+    return paths
+
+
+def create_local_repo(parent_dir, name):
+    """Create a new folder and initialize a git repo in it.
+    Returns (path, output_text).
+    """
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "-", name.strip()).strip("-") or "new-project"
+    path = os.path.join(parent_dir, safe)
+    os.makedirs(path, exist_ok=True)
+    out = run_command_capture("git init", cwd=path)
+    # Create a starter README so the first commit has content.
+    readme = os.path.join(path, "README.md")
+    if not os.path.exists(readme):
+        try:
+            with open(readme, "w", encoding="utf-8") as f:
+                f.write(f"# {safe}\n")
+        except Exception:
+            pass
+    return path, out
+
+
+# Lightweight intent detection so non-technical users can just chat.
+_NEW_REPO_RE = re.compile(
+    r"\b(new repo|new repository|create (a )?repo|create (a )?repository|"
+    r"new project|create (a )?project|make (a )?project|start (a )?project)\b",
+    re.IGNORECASE,
+)
+_SWITCH_RE = re.compile(
+    r"\b(switch to|open project|change project|go to project|use project)\b",
+    re.IGNORECASE,
+)
+
+
+def detect_intent(text):
+    """Classify a chat message into a high-level intent.
+    Returns one of: 'new_repo', 'switch_project', or 'git'.
+    """
+    if _NEW_REPO_RE.search(text or ""):
+        return "new_repo"
+    if _SWITCH_RE.search(text or ""):
+        return "switch_project"
+    return "git"
 
 
 def update_env(values):

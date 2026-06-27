@@ -1,5 +1,8 @@
 # git-ai — an AI-powered git assistant 🤖
 
+[![GitHub stars](https://img.shields.io/github/stars/m4tinbeigi-official/git-ai?style=social)](https://github.com/m4tinbeigi-official/git-ai/stargazers)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A lightweight, **client-side** git assistant. You describe what you want in plain
 language, a language model turns it into a `git` command, **safe** commands run
 automatically, and only **irreversible** ones ask for a quick confirmation first.
@@ -19,16 +22,21 @@ automatically, and only **irreversible** ones ask for a quick confirmation first
 - Logs every executed command to `git_ai.log`
 - Two interfaces: a **command-line REPL** and a **graphical app (Tkinter)**
 
-### GUI highlights
+### GUI highlights (chat-first)
 
-- **Open Project** — point it at any git folder; all actions run against that repo.
-- **Quick actions** — Status, Add All, Fetch, Pull, Push in one click.
-- **Easy GitHub login (via `gh`)** — auto-detects your account, lists your repos, clones.
-- **Smart commit messages** — the AI writes a subject and body from your **real diff**;
-  edit it or hit **Rewrite**, then **Commit** or **Commit & Push**.
-- **Settings panel** — paste your Bynara API key, sign up for a key via link, pick a
-  cloud model, and switch providers.
-- **Ask box** — type any other request in plain language → a safe git command.
+- **Chat with your repos** — type what you want in plain language; the assistant
+  explains, runs safe commands automatically, and asks before anything irreversible.
+  No git or programming knowledge needed.
+- **Suggestion chips** — one-tap starters like *"What changed?"*, *"Commit my changes"*,
+  *"Push to GitHub"*, *"Create a new project"*.
+- **Projects sidebar** — add multiple folders, switch between them with a click, or
+  **create a brand-new repo** (locally or by chatting *"create a project called notes"*).
+- **Undo last** — safely reverts your last commit (non-destructive `git revert`).
+- **Smart commit messages** — drafts a subject + body from your **real diff**, then
+  Commit or Commit & Push.
+- **Easy GitHub login (via `gh`)** — auto-detects your account; shows a one-time code.
+- **Settings panel** — paste your Bynara API key, sign up via link, pick a cloud model,
+  switch providers.
 
 ---
 
@@ -82,6 +90,17 @@ You can paste this key and pick a model directly from the GUI **Settings** panel
 
 ## ▶️ Usage
 
+### Easiest: double-click launcher (auto-installs everything)
+
+These scripts pick a suitable Python, install requirements automatically, and start the app:
+
+- **macOS** — `run.command` (first time: `chmod +x run.command`, then double-click)
+- **Windows** — `run.bat` (double-click)
+- **Linux** — `run.sh` (`chmod +x run.sh && ./run.sh`)
+
+You can also just run the Python files directly — on first launch git-ai will
+**auto-install missing requirements** itself:
+
 ### Command line (REPL)
 
 ```bash
@@ -117,6 +136,7 @@ GitHub Actions builds executables for **Windows, macOS, and Linux** automaticall
 
 - Every **push to `main`** updates a rolling **"Latest build"** prerelease under **Releases**.
 - Every **tag `v*`** creates a full versioned **Release**.
+- macOS ships as a **`.dmg`** (plus a zipped `.app`); Windows as `.exe`; Linux as binaries.
 - Every run also uploads per-OS files under **Actions → Artifacts**.
 
 > Note: this is a **desktop** (Tkinter) app, so builds are desktop-only. An Android
@@ -140,6 +160,22 @@ This project deliberately ships **no shared API key**; each user supplies their 
 - **Accountability:** each user owns and is responsible for their own usage.
 
 `.env` is in `.gitignore` and is never committed.
+
+## 👤 Author
+
+Created by **Rick Sanchez** — *vibe coder*.
+
+- 🔗 Project: https://github.com/m4tinbeigi-official/git-ai
+- 🐙 GitHub: https://github.com/m4tinbeigi-official/
+- 🐦 Twitter / X: https://twitter.com/m4tinbeigi
+- 📸 Instagram: https://instagram.com/m4tinbeigi
+- 💼 LinkedIn: https://ir.linkedin.com/in/matinbeigi
+
+## ⭐ Star the project
+
+If git-ai is useful to you, please **[give it a star on GitHub](https://github.com/m4tinbeigi-official/git-ai)** —
+it helps a lot and takes one click. You can also see the live star count and all links
+from the in-app **About** page.
 
 ## 📄 License
 
