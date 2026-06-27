@@ -1,58 +1,58 @@
-<div dir="rtl">
+# git-ai — an AI-powered git assistant 🤖
 
-# git-ai — دستیار گیت با هوش مصنوعی 🤖
+A lightweight, **client-side** git assistant. You describe what you want in plain
+language, a language model turns it into a `git` command, **safe** commands run
+automatically, and only **irreversible** ones ask for a quick confirmation first.
 
-یک دستیار سبک و **سمت‌کاربر** برای گیت. شما به زبان طبیعی (فارسی یا هر زبانی) می‌گویید چه می‌خواهید، یک مدل زبانی آن را به یک دستور `git` تبدیل می‌کند، دستورهای امن **خودکار** اجرا می‌شوند و فقط دستورهای **برگشت‌ناپذیر** پیش از اجرا یک تأیید سریع می‌گیرند.
-
-> هیچ کلید یا توکنی در این مخزن وجود ندارد. هر کاربر کلید خودش را در فایل `.env` می‌گذارد.
-
----
-
-## ✨ ویژگی‌ها
-
-- ورودی به زبان طبیعی → خروجی دستور `git`
-- دو حالت اجرا: **آفلاین با Ollama** یا **هر سرویس سازگار با OpenAI**
-- جمع‌آوری خودکار زمینهٔ مخزن (شاخهٔ فعلی، وضعیت، سه کامیت آخر) و ارسال به مدل
-- قوانین ایمنی چندلایه: لیست **مسدود**، لیست **خطرناک** با تأیید y/n
-- ثبت همهٔ دستورهای اجراشده در `git_ai.log`
-- دو رابط: **خط فرمان (REPL فارسی)** و **گرافیکی (Tkinter)**
-
-### امکانات رابط گرافیکی (GUI)
-
-- **انتخاب پروژه:** هر پوشهٔ مخزن گیت را انتخاب می‌کنی و همهٔ دستورها روی همان پروژه اجرا می‌شوند.
-- **دکمه‌های سریع:** وضعیت، افزودن همه، واکشی، پول و پوش — با یک کلیک.
-- **ورود آسان به گیت‌هاب (با `gh`):** اکانتت به‌صورت خودکار شناسایی می‌شود، لیست مخازنت واکشی و قابل **کلون** است.
-- **پیام کامیت هوشمند:** با یک کلیک، AI از روی **تغییرات واقعی (diff)** عنوان و توضیح کامیت را می‌نویسد؛ می‌توانی ویرایش کنی یا دکمهٔ **بازنویسی** را بزنی تا دوباره بنویسد. سپس **کامیت** یا **کامیت و پوش**.
-- **باکس زبان طبیعی:** هر درخواست دیگری را فارسی بنویس تا به دستور `git` تبدیل و (با بررسی ایمنی) اجرا شود.
-
-> ورود به گیت‌هاب در GUI به ابزار [GitHub CLI (`gh`)](https://cli.github.com) نیاز دارد. اگر نصب نباشد، برنامه راهنمایی‌ات می‌کند.
+> No API keys or tokens live in this repository. Each user supplies their own in `.env`.
 
 ---
 
-## 📦 نصب
+## ✨ Features
 
-نیازمند **Python 3** است.
+- Plain-language input → `git` command output
+- Two providers: **offline with Ollama** or **any OpenAI-compatible service**
+- **Automatic model switching** — prefers your local Ollama, and falls back to the
+  cloud provider automatically when Ollama isn't running and a key is set
+- Gathers repo context automatically (current branch, status, last 3 commits)
+- Multi-layered safety: a **blocked** list and a **dangerous** list with y/n confirmation
+- Logs every executed command to `git_ai.log`
+- Two interfaces: a **command-line REPL** and a **graphical app (Tkinter)**
 
-</div>
+### GUI highlights
+
+- **Open Project** — point it at any git folder; all actions run against that repo.
+- **Quick actions** — Status, Add All, Fetch, Pull, Push in one click.
+- **Easy GitHub login (via `gh`)** — auto-detects your account, lists your repos, clones.
+- **Smart commit messages** — the AI writes a subject and body from your **real diff**;
+  edit it or hit **Rewrite**, then **Commit** or **Commit & Push**.
+- **Settings panel** — paste your Bynara API key, sign up for a key via link, pick a
+  cloud model, and switch providers.
+- **Ask box** — type any other request in plain language → a safe git command.
+
+---
+
+## 📦 Installation
+
+Requires **Python 3** (with Tkinter for the GUI).
 
 ```bash
 git clone https://github.com/<YOUR_USERNAME>/git-ai.git
 cd git-ai
 pip install -r requirements.txt
-cp .env.example .env      # سپس .env را ویرایش کنید
+cp .env.example .env      # then edit .env
 ```
 
-<div dir="rtl">
+> macOS note: Apple's system `python3` ships a broken Tk that can crash the GUI.
+> Use a python.org build (e.g. `python3.14 git_ai_gui.py`) for the graphical app.
 
-## ⚙️ پیکربندی (فایل `.env`)
+## ⚙️ Configuration (`.env`)
 
-فایل `.env.example` را به `.env` کپی کنید و مقادیر را تنظیم کنید.
+Copy `.env.example` to `.env` and set the values — or just use the in-app **Settings** panel.
 
-### حالت ۱ — Ollama (محلی و آفلاین، پیش‌فرض)
+### Option 1 — Ollama (local, offline, default)
 
-هیچ داده‌ای از سیستم شما خارج نمی‌شود.
-
-</div>
+Nothing leaves your machine.
 
 ```env
 PROVIDER=ollama
@@ -60,107 +60,81 @@ OLLAMA_URL=http://localhost:11434/api/chat
 OLLAMA_MODEL=gemma3:4b
 ```
 
-<div dir="rtl">
-
-پیش‌نیاز: [Ollama](https://ollama.com) نصب باشد و مدل دانلود شده باشد:
-
-</div>
+Requires [Ollama](https://ollama.com) and the model pulled:
 
 ```bash
 ollama pull gemma3:4b
 ```
 
-<div dir="rtl">
+### Option 2 — OpenAI-compatible (cloud)
 
-### حالت ۲ — سرویس سازگار با OpenAI
-
-هر سرویسی که از `/v1/chat/completions` پشتیبانی می‌کند (OpenAI، OpenRouter، سرویس‌های ایرانی و …).
-
-</div>
+Any service exposing `/v1/chat/completions`. **Bynara** is an OpenAI-compatible router —
+[sign up to get your own key](https://router.bynara.id/register?ref=NMAP6F9D):
 
 ```env
 PROVIDER=openai
 LLM_BASE_URL=https://router.bynara.id/v1
 LLM_MODEL=gpt-4o-mini
-LLM_API_KEY=کلید-خودتان-را-اینجا-بگذارید
+LLM_API_KEY=your-own-key-here
 ```
 
-<div dir="rtl">
+You can paste this key and pick a model directly from the GUI **Settings** panel.
 
-## ▶️ اجرا
+## ▶️ Usage
 
-### خط فرمان (REPL)
-
-</div>
+### Command line (REPL)
 
 ```bash
 python git_ai.py
 ```
 
-<div dir="rtl">
-
-سپس درخواست خود را بنویسید، مثلاً: «همه تغییرات را کامیت کن با پیام اصلاح باگ». برای خروج: `exit`، `quit` یا `خروج`.
-
-اجرای یک‌باره (بدون REPL):
-
-</div>
+Type a request, e.g. *"stage everything and commit with message fix bug"*.
+Exit with `exit`, `quit`, or `q`. One-shot mode:
 
 ```bash
-python git_ai.py "وضعیت مخزن را نشان بده"
+python git_ai.py "show repo status"
 ```
 
-<div dir="rtl">
-
-### رابط گرافیکی (Tkinter)
-
-پنجره‌ای با انتخاب پروژه، دکمه‌های گیت، ورود گیت‌هاب و پیام کامیت هوشمند:
-
-</div>
+### Graphical app (Tkinter)
 
 ```bash
 python git_ai_gui.py
 ```
 
-<div dir="rtl">
+## 🛡️ Safety rules
 
-## 🛡️ قوانین ایمنی
+- Only commands starting with `git` are run; everything else is rejected.
+- **Blocked (never run):** anything containing `rm`, `sudo`, `mkfs`, writes to `/dev`, fork-bombs, etc.
+- **Dangerous (confirm first):** `reset --hard`, `push --force`/`-f`, `clean -f`, `branch -D`,
+  `checkout -- <file>`, `restore`, `filter-branch`, `reflog expire`, `gc --prune`, `rebase`,
+  `stash drop/clear`, `update-ref -d`.
+- `REQUIRE_CONFIRM_FOR_DANGEROUS` (default `True`) controls the confirmation behavior.
+- Every executed command is logged to `git_ai.log`.
 
-- فقط دستورهایی که با `git` شروع شوند اجرا می‌شوند؛ بقیه رد می‌شوند.
-- **لیست مسدود (هرگز اجرا نمی‌شود):** هر دستوری شامل `rm`، `sudo`، `mkfs`، نوشتن روی `/dev`، fork-bomb و موارد مشابه.
-- **لیست خطرناک (قبل از اجرا تأیید می‌گیرد):** `reset --hard`، `push --force`/`-f`، `clean -f`، `branch -D`، `checkout -- <file>`، `restore`، `filter-branch`، `reflog expire`، `gc --prune`، `rebase`، `stash drop/clear`، `update-ref -d`.
-- کلید `REQUIRE_CONFIRM_FOR_DANGEROUS` (پیش‌فرض `True`) رفتار تأیید را کنترل می‌کند.
-- همهٔ دستورهای اجراشده در `git_ai.log` ثبت می‌شوند.
+## 🏗️ Building executables (macOS & Windows)
 
-## 🏗️ ساخت اپ اجرایی (مک و ویندوز)
+Every **push to `main`** and every **tag `v*`** triggers GitHub Actions to build macOS and
+Windows executables, available under **Actions → Artifacts**. Tags also create a **Release**.
 
-با هر **push روی `main`** یا هر **تگ `v*`**، گیت‌هاب اکشنز به‌صورت خودکار نسخهٔ اجرایی مک و ویندوز را می‌سازد و در تب **Actions → Artifacts** قرار می‌دهد. روی تگ، یک **Release** هم با فایل‌ها ساخته می‌شود.
-
-ساخت دستی به‌صورت محلی:
-
-</div>
+Build locally:
 
 ```bash
 pip install pyinstaller
 pyinstaller --onefile --name git-ai git_ai.py
-# نسخهٔ گرافیکی:
 pyinstaller --onefile --windowed --name git-ai-gui git_ai_gui.py
 ```
 
-<div dir="rtl">
+## 🔑 Why not a shared key?
 
-## 🔑 چرا کلید مشترک نه؟
+This project deliberately ships **no shared API key**; each user supplies their own in `.env`.
 
-این پروژه عمداً **هیچ کلید API مشترکی** ارائه نمی‌دهد و هر کاربر باید کلید خودش را در `.env` بگذارد. دلایل:
+- **Security:** a shared key in a public repo is leaked and abused instantly.
+- **Cost & quota:** OpenAI-compatible services are metered; a shared key burns out fast.
+- **Privacy:** with `ollama` you can run fully offline — best for private code.
+- **Accountability:** each user owns and is responsible for their own usage.
 
-- **امنیت:** کلید مشترک در یک مخزن عمومی فوراً لو می‌رود و سوءاستفاده می‌شود.
-- **هزینه و سهمیه:** سرویس‌های OpenAI‑سازگار هزینه‌بر و سهمیه‌ای هستند؛ یک کلید مشترک خیلی زود مسدود یا تمام‌خرج می‌شود.
-- **حریم خصوصی:** با حالت `ollama` می‌توانید کاملاً آفلاین و بدون خروج داده کار کنید — بهترین گزینه برای کدِ خصوصی.
-- **مسئولیت‌پذیری:** هر کاربر مالک و مسئول مصرف کلید خودش است.
+`.env` is in `.gitignore` and is never committed.
 
-فایل `.env` در `.gitignore` قرار دارد و هرگز کامیت نمی‌شود.
-
-## 📄 مجوز
+## 📄 License
 
 [MIT](LICENSE)
-
-</div>

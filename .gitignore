@@ -1,10 +1,10 @@
-# تنظیمات و رازهای کاربر — هرگز کامیت نشود
+# User settings and secrets — never commit
 .env
 
-# لاگ دستورها
+# Command log
 git_ai.log
 
-# پایتون
+# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -13,12 +13,12 @@ build/
 dist/
 *.spec
 
-# محیط مجازی
+# Virtual environments
 .venv/
 venv/
 env/
 
-# سیستم‌عامل / ویرایشگر
+# OS / editor
 .DS_Store
 .idea/
 .vscode/
