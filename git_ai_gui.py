@@ -230,6 +230,10 @@ class GitAIApp:
     # ------------------------------------------------------------- build
     def _build(self):
         self.rtl = i18n.is_rtl()
+        # Use the Persian/Arabic font for the WHOLE UI when an RTL language is
+        # active, so labels, buttons and the sidebar render in Vazirmatn too.
+        global FONT
+        FONT = FONT_FA if self.rtl else FONT_EN
         self.lead = "right" if self.rtl else "left"
         self.trail = "left" if self.rtl else "right"
         self.bot_side = self.lead
