@@ -150,6 +150,15 @@ pyinstaller --onefile --name git-ai git_ai.py
 pyinstaller --onefile --windowed --name git-ai-gui git_ai_gui.py
 ```
 
+## ✅ Tests
+
+Unit tests cover the safety classifier, JSON parsing, intent detection, the
+explanation gate, and i18n coverage. They run automatically in CI on every push.
+
+```bash
+python -m unittest discover -s tests -v
+```
+
 ## 🔑 Why not a shared key?
 
 This project deliberately ships **no shared API key**; each user supplies their own in `.env`.

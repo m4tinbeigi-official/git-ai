@@ -107,6 +107,9 @@ LINK_LINKEDIN = "https://ir.linkedin.com/in/matinbeigi"
 # UI language for the graphical app (en/fa/ar/fr/es). Empty = auto-detect.
 UI_LANG = os.getenv("GIT_AI_LANG", "").strip().lower()
 
+# Whether to append a plain-language explanation after running commands.
+EXPLAIN_ACTIONS = os.getenv("GIT_AI_EXPLAIN", "true").strip().lower() not in ("0", "false", "no", "off")
+
 # When True, dangerous commands require a y/n confirmation before running.
 REQUIRE_CONFIRM_FOR_DANGEROUS = True
 
@@ -117,10 +120,19 @@ MAX_DIFF_CHARS = 6000     # cap the diff length sent to the model
 # ---------------------------------------------------------------------------
 # Safety rules
 # ---------------------------------------------------------------------------
+# Blocked anywhere in the command (never run, even chained after a git command).
 BLOCKED_PATTERNS = [
-    r"\brm\b", r"\bsudo\b", r"\bmkfs\b", r">\s*/dev/",
+    r"\brm\b", r"\bsudo\b", r"\bmkfs\b", r">\s*/dev/", r">\s*/",
     r":\(\)\s*\{", r"\bdd\b\s+if=", r"\bshutdown\b", r"\breboot\b",
+    r"\$\(", r"`",                      # command substitution (injection vector)
+    r"\bcurl\b", r"\bwget\b", r"\bnc\b",  # data exfiltration tools
+    r"\beval\b", r"\bcrontab\b",
 ]
+
+# Read-only commands we don't bother explaining (keeps things fast/cheap).
+_READONLY_RE = re.compile(
+    r"^git\s+(status|log|diff|show|remote|branch(?!\s+-)|ls-files|ls-remote|"
+    r"rev-parse|config\s+--get|describe|shortlog|blame)\b", re.IGNORECASE)
 
 DANGEROUS_PATTERNS = [
     r"reset\s+--hard", r"push\s+.*--force", r"push\s+.*\s-f\b", r"push\s+-f\b",
@@ -260,18 +272,23 @@ def gather_repo_context(cwd=None):
 
 
 def extract_json(text):
-    """Robust JSON parsing: whole text first, then the first {...} block via regex."""
+    """Robust JSON parsing tolerant of small-model quirks: code fences, prose
+    around the object, and trailing commas."""
     text = (text or "").strip()
-    try:
-        return json.loads(text)
-    except Exception:
-        pass
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if match:
-        try:
-            return json.loads(match.group(0))
-        except Exception:
-            pass
+    # strip markdown code fences
+    text = re.sub(r"^```[a-zA-Z]*\s*", "", text)
+    text = re.sub(r"\s*```$", "", text).strip()
+
+    candidates = [text]
+    m = re.search(r"\{.*\}", text, re.DOTALL)
+    if m:
+        candidates.append(m.group(0))
+    for c in candidates:
+        for variant in (c, re.sub(r",(\s*[}\]])", r"\1", c)):  # also try without trailing commas
+            try:
+                return json.loads(variant)
+            except Exception:
+                continue
     raise ValueError("The model did not return valid JSON.")
 
 
@@ -499,6 +516,9 @@ def apply_config(values):
         OLLAMA_URL = values["OLLAMA_URL"].strip()
     if "OLLAMA_MODEL" in values:
         OLLAMA_MODEL = values["OLLAMA_MODEL"].strip()
+    if "GIT_AI_EXPLAIN" in values:
+        global EXPLAIN_ACTIONS
+        EXPLAIN_ACTIONS = values["GIT_AI_EXPLAIN"].strip().lower() not in ("0", "false", "no", "off")
 
 
 def projects_file():
@@ -602,6 +622,10 @@ def update_env(values):
     with open(path, "w", encoding="utf-8") as f:
         for k in order:
             f.write(f"{k}={data[k]}\n")
+    try:
+        os.chmod(path, 0o600)  # the file holds the API key — keep it private
+    except Exception:
+        pass
     apply_config(values)
     return path
 
@@ -616,6 +640,8 @@ def classify_command(command):
         return "invalid", "No command was produced."
     if not cmd.startswith("git"):
         return "invalid", "Only commands starting with git are allowed."
+    # Blocked patterns are checked across the WHOLE string, so destructive tools
+    # chained after a git command (e.g. "git status; rm -rf /") are caught too.
     for pat in BLOCKED_PATTERNS:
         if re.search(pat, cmd):
             return "blocked", f"Command blocked (dangerous pattern: {pat})."
@@ -623,6 +649,13 @@ def classify_command(command):
         if re.search(pat, cmd):
             return "dangerous", f"This command is irreversible or risky (pattern: {pat})."
     return "safe", "safe"
+
+
+def should_explain(command):
+    """Whether to add a plain-language explanation for this command."""
+    if not EXPLAIN_ACTIONS:
+        return False
+    return not _READONLY_RE.search((command or "").strip())
 
 
 def log_command(command, cwd=None):

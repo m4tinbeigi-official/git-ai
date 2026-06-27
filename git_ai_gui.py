@@ -30,6 +30,7 @@ import i18n
 from i18n import t
 
 NOQTE_URL = "https://noqte.pro"
+HISTORY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chat_history.json")
 
 # --- modern dark palette -------------------------------------------------
 BG, PANEL, ELEV, ELEV2, BORDER = "#0d1117", "#161b22", "#21262d", "#2d333b", "#30363d"
@@ -152,6 +153,8 @@ class GitAIApp:
         self.projects = core.load_projects()
         self.pending = None
         self.typing_frame = None
+        self._replaying = False
+        self.history = self._load_history()
 
         root.title("git-ai")
         root.geometry("1060x760")
@@ -162,7 +165,45 @@ class GitAIApp:
         i18n.set_language(detect_lang())
         self._init_style()
         self._build()
-        self._greet()
+        if self.history:
+            self._replay()
+            self.refresh_github_status()
+        else:
+            self._greet()
+
+    # ------------------------------------------------------------- history
+    def _load_history(self):
+        try:
+            import json
+            with open(HISTORY_FILE, encoding="utf-8") as f:
+                data = json.load(f)
+            return [(k, v) for k, v in data if k in ("user", "bot", "term")][-200:]
+        except Exception:
+            return []
+
+    def _save_history(self):
+        try:
+            import json
+            with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+                json.dump(self.history[-200:], f, ensure_ascii=False)
+        except Exception:
+            pass
+
+    def _record(self, kind, text_):
+        if not self._replaying:
+            self.history.append((kind, text_))
+            self._save_history()
+
+    def _replay(self):
+        self._replaying = True
+        for kind, text_ in self.history:
+            if kind == "user":
+                self.user(text_)
+            elif kind == "term":
+                self.term(text_)
+            else:
+                self.bot(text_)
+        self._replaying = False
 
     # ------------------------------------------------------------- styling
     def _init_style(self):
@@ -254,7 +295,12 @@ class GitAIApp:
         except Exception:
             pass
         self._build()
-        self._greet()
+        # Keep the conversation; don't wipe it on language switch.
+        if self.history:
+            self._replay()
+            self.refresh_github_status()
+        else:
+            self._greet()
 
     def _build_sidebar(self, parent):
         side = tk.Frame(parent, bg=PANEL, width=230)
@@ -396,14 +442,18 @@ class GitAIApp:
 
     def user(self, text_):
         self._bubble(text_, self.user_side, USER_BG, USER_FG, sender="YOU", name_fg=MUTED)
+        self._record("user", text_)
 
     def bot(self, text_):
         self._bubble(text_, self.bot_side, BOT_BG, BOT_FG, sender="git-ai", name_fg="#79c0ff")
+        self._record("bot", text_)
 
     def term(self, text_):
         self._bubble(text_, self.bot_side, TERM_BG, TERM_FG, sender="git-ai · output", name_fg=MUTED, mono=True)
+        self._record("term", text_)
 
     def bot_actions(self, text_, buttons):
+        self._record("bot", text_)
         rtl = _is_rtl_text(text_)
         row = tk.Frame(self.msgs, bg=BG)
         row.pack(fill="x", padx=18, pady=(8, 2))
@@ -672,7 +722,8 @@ class GitAIApp:
         out = core.run_command_capture(command, cwd=self.repo_path)
         if not silent:
             self.term(f"$ {command}\n{out}")          # raw output stays English
-            self._explain_async(command, out)          # then a plain-language note
+            if core.should_explain(command):           # then a plain-language note
+                self._explain_async(command, out)
         self.update_active_header()
         self.render_projects()
         if offer_push and "commit" in command:
@@ -963,12 +1014,18 @@ class GitAIApp:
         ollama_entry.insert(0, core.OLLAMA_MODEL)
         ollama_entry.pack(fill="x", ipady=5)
 
+        explain = tk.BooleanVar(value=core.EXPLAIN_ACTIONS)
+        tk.Checkbutton(body, text=t("set_explain"), variable=explain, bg=PANEL, fg=INK, selectcolor=BG,
+                       activebackground=PANEL, activeforeground=INK, highlightthickness=0,
+                       font=(FONT, 10)).pack(anchor="w", pady=(10, 0))
+
         def save():
             try:
                 core.update_env({
                     "PROVIDER": provider.get(), "LLM_API_KEY": key_entry.get().strip(),
                     "LLM_BASE_URL": base_entry.get().strip(), "LLM_MODEL": model_combo.get().strip(),
                     "OLLAMA_MODEL": ollama_entry.get().strip(),
+                    "GIT_AI_EXPLAIN": "true" if explain.get() else "false",
                 })
             except Exception as e:
                 messagebox.showerror("Save failed", str(e))
