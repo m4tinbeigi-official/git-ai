@@ -104,6 +104,9 @@ LINK_TWITTER = "https://twitter.com/m4tinbeigi"
 LINK_INSTAGRAM = "https://instagram.com/m4tinbeigi"
 LINK_LINKEDIN = "https://ir.linkedin.com/in/matinbeigi"
 
+# UI language for the graphical app (en/fa/ar/fr/es). Empty = auto-detect.
+UI_LANG = os.getenv("GIT_AI_LANG", "").strip().lower()
+
 # When True, dangerous commands require a y/n confirmation before running.
 REQUIRE_CONFIRM_FOR_DANGEROUS = True
 
@@ -191,6 +194,26 @@ User: commit my changes
 User: what is the capital of France?
 {"type": "reject", "command": "", "reply": "That's outside what I can help with — I focus on git and GitHub. Want to commit, push, or check your status?"}
 """
+
+
+_LANG_NAMES = {"en": "English", "fa": "Persian", "ar": "Arabic", "fr": "French", "es": "Spanish"}
+
+
+def explain_action(command, output, lang="en"):
+    """Explain, in simple everyday language, what a git command just did.
+    Returns a short friendly string (or '' on failure)."""
+    name = _LANG_NAMES.get(lang, "English")
+    sysp = (
+        f"You explain, in simple everyday {name}, what just happened to the user's git project. "
+        "You are given a git command and its raw output. Write 1-2 short, friendly, non-technical "
+        "sentences that a beginner understands. No jargon. Return ONLY a JSON object: "
+        '{"reply": "<explanation>"}'
+    )
+    try:
+        res = _ask(f"Command: {command}\n\nOutput:\n{(output or '')[:1500]}", sysp)
+        return (res.get("reply") or "").strip()
+    except Exception:
+        return ""
 
 
 def assistant_reply(text, cwd=None):
@@ -461,7 +484,9 @@ def find_env_path():
 
 def apply_config(values):
     """Update the in-memory configuration globals at runtime."""
-    global PROVIDER, LLM_BASE_URL, LLM_MODEL, LLM_API_KEY, OLLAMA_URL, OLLAMA_MODEL
+    global PROVIDER, LLM_BASE_URL, LLM_MODEL, LLM_API_KEY, OLLAMA_URL, OLLAMA_MODEL, UI_LANG
+    if "GIT_AI_LANG" in values:
+        UI_LANG = values["GIT_AI_LANG"].strip().lower()
     if "PROVIDER" in values:
         PROVIDER = values["PROVIDER"].strip().lower()
     if "LLM_BASE_URL" in values:

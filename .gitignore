@@ -7,6 +7,9 @@ git_ai.log
 # Saved projects list (local to each user)
 projects.json
 
+# Downloaded fonts (Vazirmatn) — fetched at runtime
+assets/fonts/
+
 # Python
 __pycache__/
 *.py[cod]
