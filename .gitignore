@@ -1,0 +1,24 @@
+# تنظیمات و رازهای کاربر — هرگز کامیت نشود
+.env
+
+# لاگ دستورها
+git_ai.log
+
+# پایتون
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+*.spec
+
+# محیط مجازی
+.venv/
+venv/
+env/
+
+# سیستم‌عامل / ویرایشگر
+.DS_Store
+.idea/
+.vscode/
