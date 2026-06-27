@@ -15,13 +15,121 @@ Uses the git_ai core. No keys or tokens live in this code.
 
 import os
 import re
+import ctypes
+import platform
 import threading
 import webbrowser
 import subprocess
+import urllib.request
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
+import tkinter.font as tkfont
 
 import git_ai as core
+
+
+# ---------------------------------------------------------------------------
+# Fonts: Vazirmatn for Persian, a clean sans for English (Vazirmatn fallback).
+# Auto-downloaded + registered at runtime; degrades to system fonts if offline.
+# ---------------------------------------------------------------------------
+_VAZIR_FILES = {
+    "Vazirmatn-Regular.ttf": "https://cdn.jsdelivr.net/npm/vazirmatn@33.0.3/fonts/ttf/Vazirmatn-Regular.ttf",
+    "Vazirmatn-Bold.ttf":    "https://cdn.jsdelivr.net/npm/vazirmatn@33.0.3/fonts/ttf/Vazirmatn-Bold.ttf",
+}
+
+
+def _font_dir():
+    d = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "fonts")
+    try:
+        os.makedirs(d, exist_ok=True)
+    except Exception:
+        pass
+    return d
+
+
+def _register_font_file(path):
+    try:
+        sysname = platform.system()
+        if sysname == "Windows":
+            ctypes.windll.gdi32.AddFontResourceExW(ctypes.c_wchar_p(path), 0x10, 0)
+            return True
+        if sysname == "Darwin":
+            from ctypes import util, cdll, c_void_p, c_int, c_char_p
+            ct = cdll.LoadLibrary(util.find_library("CoreText"))
+            cf = cdll.LoadLibrary(util.find_library("CoreFoundation"))
+            cf.CFStringCreateWithCString.restype = c_void_p
+            cf.CFStringCreateWithCString.argtypes = [c_void_p, c_char_p, c_int]
+            s = cf.CFStringCreateWithCString(None, path.encode("utf-8"), 0x08000100)
+            cf.CFURLCreateWithFileSystemPath.restype = c_void_p
+            cf.CFURLCreateWithFileSystemPath.argtypes = [c_void_p, c_void_p, c_int, c_int]
+            url = cf.CFURLCreateWithFileSystemPath(None, s, 0, False)
+            ct.CTFontManagerRegisterFontsForURL.restype = ctypes.c_bool
+            ct.CTFontManagerRegisterFontsForURL.argtypes = [c_void_p, c_int, c_void_p]
+            return bool(ct.CTFontManagerRegisterFontsForURL(url, 1, None))  # process scope
+        import shutil
+        dest = os.path.expanduser("~/.fonts")
+        os.makedirs(dest, exist_ok=True)
+        shutil.copy(path, dest)
+        try:
+            subprocess.run(["fc-cache", "-f", dest], timeout=20)
+        except Exception:
+            pass
+        return True
+    except Exception:
+        return False
+
+
+def _ensure_vazir():
+    """Download (once) and register Vazirmatn. Best-effort, fully optional."""
+    d = _font_dir()
+    for name, url in _VAZIR_FILES.items():
+        p = os.path.join(d, name)
+        if not os.path.exists(p):
+            try:
+                urllib.request.urlretrieve(url, p)
+            except Exception:
+                continue
+        if os.path.exists(p):
+            _register_font_file(p)
+
+
+def _pick_fonts(root):
+    """Return (persian_family, english_family) from available families."""
+    try:
+        fams = {f.lower(): f for f in tkfont.families(root)}
+    except Exception:
+        fams = {}
+
+    def first(cands, default):
+        for c in cands:
+            if c.lower() in fams:
+                return fams[c.lower()]
+        return default
+
+    fa = first(["Vazirmatn", "Vazirmatn UI", "Vazir", "Vazir UI"], None)
+    en = first(["Inter", "SF Pro Text", "SF Pro Display", "Helvetica Neue",
+                "Segoe UI Variable", "Segoe UI"], None)
+    if fa is None:
+        fa = first(["Tahoma", "Geeza Pro", "Noto Naskh Arabic", "Noto Sans Arabic",
+                    "DejaVu Sans"], en or "Helvetica")
+    if en is None:
+        en = fa or "Helvetica"
+    return fa, en
+
+
+def setup_fonts(root):
+    """Initialise FONT/FONT_FA/FONT_EN globals. Call once after Tk() is created."""
+    global FONT, FONT_FA, FONT_EN
+    try:
+        _ensure_vazir()
+        FONT_FA, FONT_EN = _pick_fonts(root)
+        FONT = FONT_EN
+    except Exception:
+        pass
+
+
+def _is_persian(text):
+    return bool(re.search(r"[؀-ۿ]", text or ""))
 
 # --- modern dark palette -------------------------------------------------
 BG       = "#0d1117"   # app background
@@ -43,7 +151,9 @@ BOT_BG   = "#21262d"
 BOT_FG   = "#e6edf3"
 TERM_BG  = "#010409"
 TERM_FG  = "#7ee787"
-FONT     = "Helvetica"
+FONT     = "Helvetica"   # default UI font (replaced at runtime)
+FONT_FA  = "Helvetica"   # Persian font (Vazirmatn when available)
+FONT_EN  = "Helvetica"   # English font
 MONO     = "Menlo"
 WRAP     = 500
 
@@ -61,6 +171,7 @@ class GitAIApp:
         root.minsize(860, 620)
         root.configure(bg=BG)
 
+        setup_fonts(root)
         self._init_style()
         self._build_topbar()
 
@@ -104,12 +215,21 @@ class GitAIApp:
 
     def _flatbtn(self, parent, text, cmd, bg=ELEV, fg=INK, hover=ELEV2,
                  font=None, padx=10, pady=5, bold=False):
-        b = tk.Button(parent, text=text, command=cmd, bg=bg, fg=fg, relief="flat",
-                      bd=0, cursor="hand2", activebackground=hover, activeforeground=fg,
-                      font=font or (FONT, 10, "bold" if bold else "normal"),
-                      padx=padx, pady=pady, highlightthickness=0)
-        b.bind("<Enter>", lambda e: b.config(bg=hover))
-        b.bind("<Leave>", lambda e: b.config(bg=bg))
+        # Label-based button: on macOS, tk.Button ignores custom bg/fg (native
+        # Aqua), which made text unreadable. Labels honor colors everywhere.
+        f = font or (FONT, 10, "bold" if bold else "normal")
+        b = tk.Label(parent, text=text, bg=bg, fg=fg, font=f, cursor="hand2",
+                     padx=padx, pady=pady, disabledforeground=MUTED,
+                     highlightthickness=0, takefocus=0)
+        b._bg, b._hover = bg, hover
+
+        def on_click(_e):
+            if str(b["state"]) != "disabled":
+                cmd()
+
+        b.bind("<Button-1>", on_click)
+        b.bind("<Enter>", lambda e: (str(b["state"]) != "disabled") and b.config(bg=b._hover))
+        b.bind("<Leave>", lambda e: b.config(bg=b._bg))
         return b
 
     def _build_topbar(self):
@@ -270,7 +390,7 @@ class GitAIApp:
         row.pack(fill="x", padx=14, pady=12)
         field = tk.Frame(row, bg=ELEV, highlightbackground=BORDER, highlightthickness=1)
         field.pack(side="left", fill="x", expand=True, padx=(0, 10))
-        self.entry = tk.Entry(field, font=(FONT, 12), bg=ELEV, fg=INK, relief="flat",
+        self.entry = tk.Entry(field, font=(FONT_FA, 13), bg=ELEV, fg=INK, relief="flat",
                               insertbackground=INK, disabledbackground=ELEV)
         self.entry.pack(fill="x", padx=10, ipady=9)
         self.entry.bind("<Return>", lambda e: self.on_send())
@@ -318,9 +438,10 @@ class GitAIApp:
                 tk.Label(head, text="✦", bg=BG, fg=ACCENT, font=(FONT, 9)).pack(side="left", padx=(0, 4))
             tk.Label(head, text=sender, bg=BG, fg=name_fg,
                      font=(FONT, 8, "bold")).pack(side="left")
-        font = (MONO, 10) if mono else (FONT, 11)
+        font = (MONO, 10) if mono else ((FONT_FA if _is_persian(text) else FONT_EN), 12)
         lbl = tk.Label(col, text=text, bg=bg, fg=fg, font=font, wraplength=WRAP,
-                       justify="left", anchor="w", padx=15, pady=11)
+                       justify=("right" if (not mono and _is_persian(text)) else "left"),
+                       anchor="w", padx=15, pady=11)
         lbl.pack(anchor=anchor)
         self._scroll_bottom()
         return row
@@ -347,8 +468,10 @@ class GitAIApp:
                  font=(FONT, 8, "bold")).pack(side="left")
         box = tk.Frame(col, bg=BOT_BG)
         box.pack(anchor="w")
-        tk.Label(box, text=text, bg=BOT_BG, fg=BOT_FG, font=(FONT, 11),
-                 wraplength=WRAP, justify="left", anchor="w", padx=15, pady=11).pack(anchor="w")
+        afont = (FONT_FA if _is_persian(text) else FONT_EN), 12
+        tk.Label(box, text=text, bg=BOT_BG, fg=BOT_FG, font=afont,
+                 wraplength=WRAP, justify=("right" if _is_persian(text) else "left"),
+                 anchor="w", padx=15, pady=11).pack(anchor="w")
         brow = tk.Frame(box, bg=BOT_BG)
         brow.pack(anchor="w", padx=12, pady=(0, 12))
         for label, cb in buttons:

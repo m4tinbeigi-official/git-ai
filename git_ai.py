@@ -424,6 +424,33 @@ def gh_list_repos(limit=200):
         return []
 
 
+def has_remote(cwd=None):
+    """Whether the repo has any configured remote (i.e. is linked to GitHub)."""
+    return bool(run_git_context_cmd(["git", "remote"], cwd))
+
+
+def new_issue_url(title, body, repo=PROJECT_REPO):
+    """A prefilled 'new issue' URL (fallback when gh isn't available)."""
+    from urllib.parse import quote
+    return f"https://github.com/{repo}/issues/new?title={quote(title)}&body={quote(body)}"
+
+
+def create_feature_request(title, body, repo=PROJECT_REPO):
+    """Open a GitHub issue via gh. Returns (url_or_None, ok_bool, message)."""
+    try:
+        r = subprocess.run(
+            ["gh", "issue", "create", "--repo", repo, "--title", title, "--body", body],
+            capture_output=True, text=True, timeout=30,
+        )
+        out = (r.stdout or "") + (r.stderr or "")
+        m = re.search(r"https?://github\.com/\S+/issues/\d+", out)
+        if r.returncode == 0 and m:
+            return m.group(0), True, out.strip()
+        return None, False, out.strip()
+    except Exception as e:
+        return None, False, str(e)
+
+
 # ---------------------------------------------------------------------------
 # Settings (.env) management — used by the GUI Settings panel
 # ---------------------------------------------------------------------------
