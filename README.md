@@ -111,10 +111,16 @@ python git_ai_gui.py
 - `REQUIRE_CONFIRM_FOR_DANGEROUS` (default `True`) controls the confirmation behavior.
 - Every executed command is logged to `git_ai.log`.
 
-## 🏗️ Building executables (macOS & Windows)
+## 🏗️ Building executables (Windows, macOS & Linux)
 
-Every **push to `main`** and every **tag `v*`** triggers GitHub Actions to build macOS and
-Windows executables, available under **Actions → Artifacts**. Tags also create a **Release**.
+GitHub Actions builds executables for **Windows, macOS, and Linux** automatically:
+
+- Every **push to `main`** updates a rolling **"Latest build"** prerelease under **Releases**.
+- Every **tag `v*`** creates a full versioned **Release**.
+- Every run also uploads per-OS files under **Actions → Artifacts**.
+
+> Note: this is a **desktop** (Tkinter) app, so builds are desktop-only. An Android
+> app isn't possible from this codebase without rewriting the UI in a mobile framework.
 
 Build locally:
 
