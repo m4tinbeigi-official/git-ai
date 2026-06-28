@@ -20,7 +20,7 @@ automatically, and only **irreversible** ones ask for a quick confirmation first
 - Gathers repo context automatically (current branch, status, last 3 commits)
 - Multi-layered safety: a **blocked** list and a **dangerous** list with y/n confirmation
 - Logs every executed command to `git_ai.log`
-- Two interfaces: a **command-line REPL** and a **graphical app (Tkinter)**
+- Three interfaces: a **command-line REPL**, a **graphical app (Tkinter)**, and a **VS Code extension** (see `vscode-extension/`)
 
 ### GUI highlights (chat-first)
 

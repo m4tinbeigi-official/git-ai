@@ -1,0 +1,69 @@
+{
+  "name": "git-ai",
+  "displayName": "git-ai — chat with git",
+  "description": "Talk to git in plain language. Commit, push, pull and more — the AI turns your words into safe git commands.",
+  "version": "1.0.0",
+  "publisher": "noqte",
+  "engines": { "vscode": "^1.75.0" },
+  "categories": ["SCM Providers", "Machine Learning", "Other"],
+  "keywords": ["git", "ai", "chat", "commit", "assistant"],
+  "activationEvents": [],
+  "main": "./extension.js",
+  "repository": { "type": "git", "url": "https://github.com/m4tinbeigi-official/git-ai" },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        { "id": "gitAi", "title": "git-ai", "icon": "media/icon.svg" }
+      ]
+    },
+    "views": {
+      "gitAi": [
+        { "type": "webview", "id": "gitAiChat", "name": "Chat" }
+      ]
+    },
+    "commands": [
+      { "command": "gitAi.openChat", "title": "git-ai: Open Chat", "category": "git-ai" }
+    ],
+    "configuration": {
+      "title": "git-ai",
+      "properties": {
+        "gitAi.provider": {
+          "type": "string",
+          "enum": ["ollama", "openai"],
+          "default": "ollama",
+          "description": "Model provider: local Ollama or an OpenAI-compatible service."
+        },
+        "gitAi.ollamaUrl": {
+          "type": "string",
+          "default": "http://localhost:11434/api/chat",
+          "description": "Ollama chat endpoint."
+        },
+        "gitAi.ollamaModel": {
+          "type": "string",
+          "default": "gemma3:4b",
+          "description": "Ollama model name."
+        },
+        "gitAi.baseUrl": {
+          "type": "string",
+          "default": "https://router.bynara.id/v1",
+          "description": "OpenAI-compatible base URL (e.g. Bynara)."
+        },
+        "gitAi.model": {
+          "type": "string",
+          "default": "gpt-4o-mini",
+          "description": "Cloud model name."
+        },
+        "gitAi.apiKey": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Your API key. Get a free key at [Bynara](https://router.bynara.id/register?ref=NMAP6F9D)."
+        },
+        "gitAi.confirmDangerous": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ask for confirmation before irreversible commands."
+        }
+      }
+    }
+  }
+}
